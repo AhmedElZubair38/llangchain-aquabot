@@ -11,7 +11,7 @@ logging.basicConfig(level=logging.WARNING)
 logging.getLogger("crewai").setLevel(logging.ERROR)
 logging.getLogger("langchain").setLevel(logging.ERROR)
 
-os.environ["OPENAI_API_KEY"] = "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"
+os.environ["OPENAI_API_KEY"] = ""
 
 llm = ChatOpenAI(model="gpt-3.5-turbo")
 
