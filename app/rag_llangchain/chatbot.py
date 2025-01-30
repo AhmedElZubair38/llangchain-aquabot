@@ -1,6 +1,8 @@
 from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 from langchain_chroma import Chroma
 import gradio as gr
+from langchain_deepseek import ChatDeepSeek
+
 
 # import the .env file
 from dotenv import load_dotenv
@@ -14,9 +16,10 @@ embeddings_model = OpenAIEmbeddings(model="text-embedding-3-large")
 
 # initiate the model
 # llm = ChatOpenAI(temperature=0.5, model='gpt-3.5-turbo')
-llm = ChatOpenAI(temperature=0.5, model='llama3.2:latest', base_url="http://localhost:11434/v1")
-
-
+llm = ChatDeepSeek(
+    model="deepseek-llm",
+    api_base="http://172.27.240.1:11434/v1", verbose=True, temperature=0.1
+)
 # connect to the chromadb
 vector_store = Chroma(
     collection_name="example_collection",
@@ -25,48 +28,40 @@ vector_store = Chroma(
 )
 
 # Set up the vectorstore to be the retriever
-num_results = 5
-retriever = vector_store.as_retriever(search_kwargs={'k': num_results})
+retriever = vector_store.as_retriever(search_kwargs={'k': 3})
 
-# call this function for every message added to the chatbot
 def stream_response(message, history):
-    #print(f"Input: {message}. History: {history}\n")
-
-    # retrieve the relevant chunks based on the question asked
+    
+    # Retrieve the relevant chunks based on the question asked
     docs = retriever.invoke(message)
 
-    # add all the chunks to 'knowledge'
     knowledge = ""
-
     for doc in docs:
-        knowledge += doc.page_content+"\n\n"
+        knowledge += doc.page_content.strip() + "\n\n"
+
+    knowledge += "End of knowledge."
 
 
-    # make the call to the LLM (including prompt)
-    if message is not None:
+    rag_prompt = f"""
+    You are an AI assistant for Aquasprint Swimming Academy. You answer questions solely based on the provided information.
+    Do not make assumptions, and do not use information beyond what has been provided.
+    If the information required to answer the question is not present, you must say: "Sorry, I don't have that information."
 
-        partial_message = ""
+    Question: {message}
 
-        rag_prompt = f"""
-        You are an assistent which answers questions based on knowledge which is provided to you.
-        While answering, you don't use your internal knowledge, 
-        but solely the information in the "The knowledge" section.
-        You don't mention anything to the user about the povided knowledge.
+    Conversation history: {history}
 
-        The question: {message}
+    Knowledge base: {knowledge}
+    """
 
-        Conversation history: {history}
 
-        The knowledge: {knowledge}
+    # Stream the response (more detailed answers for complex queries)
+    partial_message = ""
+    for response in llm.stream(rag_prompt):
+        partial_message += response.content
+        yield partial_message
 
-        """
 
-        #print(rag_prompt)
-
-        # stream the response to the Gradio App
-        for response in llm.stream(rag_prompt):
-            partial_message += response.content
-            yield partial_message
 
 # initiate the Gradio app
 chatbot = gr.ChatInterface(stream_response, textbox=gr.Textbox(placeholder="Send to the LLM...",

@@ -5,10 +5,9 @@ import os
 os.environ["OPENAI_API_KEY"] = "sample"
 
 llm = ChatOpenAI(
-    model="llama3.2:latest",
-    base_url="http://localhost:11434/v1"
+    model="deepseek-llm",
+    base_url="http://172.27.240.1:11434/v1", verbose=True
 )
 
-# Test query
-response = llm("What is the capital of France?")
+response = llm.invoke("What is the capital of France?")
 print(response.content)
